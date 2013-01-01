@@ -29,6 +29,7 @@ import re
 import os
 import argparse
 import Image
+import math
 
 from datetime import datetime
 from shutil import copyfile
@@ -97,19 +98,26 @@ class Timelapse(object):
     def copy_files(self, basedir, prefix):
         newdir = os.path.join(basedir, "%s_%03d" % (prefix, self.number))
         if os.path.exists(newdir):
-            print "WARNING: output directory already exists"
+            print "\nWARNING: output directory already exists"
             x = 0
             while os.path.exists(newdir):
                 newdir = os.path.join(basedir, "%s_%03d_%d" % (prefix, self.number, x))
                 x += 1
-            print "         using unique directory name: %s" % os.path.basename(newdir)
+            print "INFO:    using unique directory name: %s\n" % os.path.basename(newdir)
         os.makedirs(newdir)
         n = 1
         for ti in self.sorted_images():
             fn = os.path.join(newdir, "%08d%s" % (n, ti.ext))
             copyfile(ti.fn, fn)
+            self.update_progress(n)
             n += 1
-            
+        print "\r\n"
+
+    def update_progress(self, progress):
+        n = (float(progress) / len(self.images)) * 100
+        bar = "#" * int(math.floor(n/2))
+        print '\r        Progress: [%-50s] %.02f%%' % (bar, n),
+           
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Import timelapse images from GoPro')
     parser.add_argument('-d','--debug', action='store_true', 
@@ -143,7 +151,7 @@ if __name__ == '__main__':
         if ck is None:
             print "Skipping %s as does not appear to be a GoPro directory" % possdir
             continue
-        folder = ck.group(1)
+        folder = int(ck.group(1))
         for f in os.listdir(possdir):
             nfiles += 1
             ti = TimelapseImage(os.path.join(possdir, f), folder)
@@ -154,7 +162,7 @@ if __name__ == '__main__':
                 timelapses[ti.group] = Timelapse(ti.group)
             timelapses[ti.group].add_image(ti)
 
-    print "Scan completed. Total of %d files examined.\n" % nfiles
+    print "Scan completed. Total of %d files examined." % nfiles
     for t in timelapses.itervalues():
         print "\n    Timelapse %d" % t.number
         print "        Started   %s" % t.first.strftime("%d %B %Y %H:%M:%S")
@@ -165,6 +173,7 @@ if __name__ == '__main__':
             t.copy_files(args.dest, args.prefix)
             print "        Copied\n"
         else:
+            if len(resp) == 0:
+                print "n"
             print "        Skipped...\n"
-                
 
